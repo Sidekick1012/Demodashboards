@@ -11,12 +11,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
 CSRF_TRUSTED_ORIGINS = [
     'https://web-production-19feb.up.railway.app',
-    'https://demodjangodashboards-production.up.railway.app',
 ]
-
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
