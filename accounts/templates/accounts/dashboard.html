@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}
+  Dashboard
+  <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">{{ year }}</span>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.year-tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.yr-btn{padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'DM Sans',sans-serif;transition:all .15s}
+.yr-btn.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.yr-btn:hover{border-color:#1a1a1a;color:#1a1a1a}
+.growth-badge{font-size:11px;padding:2px 7px;border-radius:10px;font-weight:500;margin-left:6px}
+.growth-up{background:#dcfce7;color:#16a34a}
+.growth-dn{background:#fee2e2;color:#dc2626}
+.growth-neu{background:#f3f4f6;color:#6b7280}
+.insight-card{border-radius:10px;padding:14px 16px;border-left:4px solid;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.insight-success{background:#f0fdf4;border-color:#16a34a}
+.insight-danger{background:#fef2f2;border-color:#dc2626}
+.insight-warning{background:#fffbeb;border-color:#d97706}
+.insight-info{background:#eff6ff;border-color:#2563eb}
+.ins-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.ins-title{font-size:12px;font-weight:600;margin-bottom:3px}
+.ins-body{font-size:11px;line-height:1.5;color:#555}
+.insight-success .ins-title{color:#14532d}
+.insight-danger .ins-title{color:#7f1d1d}
+.insight-warning .ins-title{color:#78350f}
+.insight-info .ins-title{color:#1e3a8a}
+.forecast-bar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.fc-label{font-size:11px;color:var(--muted);width:70px;flex-shrink:0}
+.fc-bar-wrap{flex:1;display:flex;flex-direction:column;gap:3px}
+.fc-bar{height:6px;border-radius:3px}
+.fc-val{font-size:11px;font-weight:600;width:60px;text-align:right;font-family:'DM Mono',monospace}
+.section-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.trend-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:6px;font-weight:500}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div style="margin-bottom:20px">
+  <h1 style="font-size:20px;font-weight:600">
+    Good {% now "G" as hour %}{% if hour < 12 %}morning{% elif hour < 17 %}afternoon{% else %}evening{% endif %}, {{ request.user.username }} 👋
+  </h1>
+  <p style="font-size:13px;color:var(--muted);margin-top:3px">Financial overview — {{ company.name }}{% if month_name %} — {{ month_name }} {{ year }}{% else %} — {{ year }}{% endif %}</p>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <span class="filter-label">Filter:</span>
+  <select id="f-year" class="filter-select" onchange="applyFilters()">
+    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <select id="f-month" class="filter-select" onchange="applyFilters()">
+    <option value="">Full Year</option>
+    {% for num,name in months %}<option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select>
+  <a href="?year={{ year }}" class="filter-btn {% if not month %}active{% endif %}">Full Year</a>
+  <div class="filter-divider"></div>
+  <span style="font-size:11px;color:var(--muted)">Showing: {% if month_name %}{{ month_name }} {% endif %}{{ year }}</span>
+</div>
+
+<!-- Alerts -->
+{% if overdue_invoices > 0 or overdue_bills > 0 %}
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+  <span style="font-size:16px">⚠️</span>
+  <span style="font-size:13px;color:#991b1b;font-weight:500">
+    {% if overdue_invoices > 0 %}{{ overdue_invoices }} overdue invoice{{ overdue_invoices|pluralize }}{% endif %}
+    {% if overdue_invoices > 0 and overdue_bills > 0 %} · {% endif %}
+    {% if overdue_bills > 0 %}{{ overdue_bills }} overdue bill{{ overdue_bills|pluralize }}{% endif %}
+    — immediate action required
+  </span>
+  <a href="{% url 'invoices' %}?status=overdue" style="margin-left:auto;font-size:12px;color:#dc2626;font-weight:600">View overdue →</a>
+</div>
+{% endif %}
+
+<!-- KPI Cards -->
+<div class="kpi-grid" style="margin-bottom:20px">
+  <div class="kpi-card green">
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-value" style="color:var(--green)">PKR {{ total_rev|floatformat:0 }}</div>
+    <div class="kpi-change">
+      {% if rev_growth >= 0 %}<span class="trend-chip" style="background:#dcfce7;color:#16a34a">▲ {{ rev_growth }}% vs {{ prev_year }}</span>
+      {% else %}<span class="trend-chip" style="background:#fee2e2;color:#dc2626">▼ {{ rev_growth|slice:"1:" }}% vs {{ prev_year }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="kpi-card red">
+    <div class="kpi-label">Total Expenses</div>
+    <div class="kpi-value" style="color:var(--red)">PKR {{ total_exp|floatformat:0 }}</div>
+    <div class="kpi-change">
+      {% if exp_growth >= 0 %}<span class="trend-chip" style="background:#fee2e2;color:#dc2626">▲ {{ exp_growth }}% vs {{ prev_year }}</span>
+      {% else %}<span class="trend-chip" style="background:#dcfce7;color:#16a34a">▼ {{ exp_growth|slice:"1:" }}% vs {{ prev_year }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="kpi-card {% if net_profit >= 0 %}blue{% else %}red{% endif %}">
+    <div class="kpi-label">Net Profit</div>
+    <div class="kpi-value" style="color:{% if net_profit >= 0 %}var(--blue){% else %}var(--red){% endif %}">PKR {{ net_profit|floatformat:0 }}</div>
+    <div class="kpi-change">
+      <span class="trend-chip" style="background:{% if margin >= 20 %}#dcfce7{% elif margin >= 10 %}#fffbeb{% else %}#fee2e2{% endif %};color:{% if margin >= 20 %}#16a34a{% elif margin >= 10 %}#d97706{% else %}#dc2626{% endif %}">{{ margin }}% margin</span>
+    </div>
+  </div>
+  <div class="kpi-card amber">
+    <div class="kpi-label">AR Outstanding</div>
+    <div class="kpi-value" style="color:var(--amber)">PKR {{ net_ar|floatformat:0 }}</div>
+    <div class="kpi-change" style="color:var(--muted);font-size:11px">AP owed: PKR {{ net_ap|floatformat:0 }}</div>
+  </div>
+</div>
+
+<!-- Row 1: Rev/Exp Chart + Insights -->
+<div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px">
+  <div class="card">
+    <div class="card-title">Revenue vs Expenses — Monthly</div>
+    <div class="card-sub">{{ year }} vs {{ prev_year }} comparison with net profit line</div>
+    <div class="chart-legend">
+      <span class="leg-item"><span class="leg-dot" style="background:#16a34a"></span>Revenue {{ year }}</span>
+      <span class="leg-item"><span class="leg-dot" style="background:rgba(22,163,74,0.3)"></span>Revenue {{ prev_year }}</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#dc2626"></span>Expenses</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#2563eb"></span>Net Profit</span>
+    </div>
+    <div style="position:relative;height:240px"><canvas id="c-rev-exp"></canvas></div>
+  </div>
+
+  <div class="card" style="overflow-y:auto;max-height:360px">
+    <div class="card-title" style="margin-bottom:12px">🧠 Decision Insights</div>
+    {% for ins in insights %}
+    <div class="insight-card insight-{{ ins.type }}">
+      <div class="ins-icon">{{ ins.icon }}</div>
+      <div>
+        <div class="ins-title">{{ ins.title }}</div>
+        <div class="ins-body">{{ ins.body }}</div>
+      </div>
+    </div>
+    {% empty %}
+    <div style="color:var(--muted);font-size:13px;padding:20px 0">No insights available yet — add financial data first.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Row 2: AR/AP + Expense Donut + Revenue Donut -->
+<div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-bottom:16px">
+  <div class="card">
+    <div class="card-title">AR vs AP — Cash Flow Gap</div>
+    <div class="card-sub">What you're owed vs what you owe — monthly</div>
+    <div style="position:relative;height:200px"><canvas id="c-ar-ap"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Expense Breakdown</div>
+    <div class="card-sub">By category — {{ year }}</div>
+    <div id="exp-legend" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
+    <div style="position:relative;height:160px"><canvas id="c-exp-donut"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Revenue Mix</div>
+    <div class="card-sub">By category — {{ year }}</div>
+    <div id="rev-legend" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
+    <div style="position:relative;height:160px"><canvas id="c-rev-donut"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 3: Profit Margin + Top Customers + Forecast -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+  <div class="card">
+    <div class="card-title">Profit Margin Trend</div>
+    <div class="card-sub">Net margin % per month — {{ year }}</div>
+    <div style="position:relative;height:180px"><canvas id="c-margin"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Top Customers</div>
+    <div class="card-sub">By invoice value — {{ year }}</div>
+    <div id="top-cust-bars" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📈 3-Month Forecast</div>
+    <div class="card-sub">Simple projection based on {{ year }} averages</div>
+    <div id="forecast-bars" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- Row 4: Multi-year Trend -->
+<div style="display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:16px">
+  <div class="card">
+    <div class="card-title">Multi-Year Performance</div>
+    <div class="card-sub">Revenue, expenses and net profit — 4-year trend</div>
+    <div class="chart-legend">
+      <span class="leg-item"><span class="leg-dot" style="background:#16a34a"></span>Revenue</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#dc2626"></span>Expenses</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#2563eb"></span>Net Profit</span>
+    </div>
+    <div style="position:relative;height:200px"><canvas id="c-yearly"></canvas></div>
+  </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div><div class="card-title">Recent Transactions</div><div class="card-sub" style="margin-bottom:0">Latest AR, AP and billing activity</div></div>
+    <a href="{% url 'invoices' %}" class="btn btn-outline btn-sm">View all →</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Description</th><th>Type</th><th style="text-align:right">Amount</th><th>Status</th></tr></thead>
+      <tbody id="txn-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MD = {{ monthly_data|safe }};
+const PM = {{ prev_monthly|safe }};
+const EXP_CAT = {{ exp_by_cat|safe }};
+const REV_CAT = {{ rev_by_cat|safe }};
+const TOP_CUST = {{ top_customers|safe }};
+const YEARLY = {{ yearly_trend|safe }};
+const FORECAST = {{ forecast|safe }};
+const TXNS = {{ recent_txns|safe }};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const CAT_COLORS = {salaries:'#2563eb',rent:'#16a34a',utilities:'#d97706',marketing:'#db2777',logistics:'#7c3aed',travel:'#0891b2',software:'#059669',misc:'#9ca3af'};
+const REV_COLORS = {products:'#16a34a',services:'#2563eb',consulting:'#d97706',other:'#9ca3af'};
+const labels = MD.map((_,i)=>MONTHS[i]);
+
+const TO_BASE = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' PKR '+Math.round(ctx.raw/1000)+'K'}}}};
+
+// 1. Revenue vs Expenses (bar + line)
+new Chart(document.getElementById('c-rev-exp'),{type:'bar',data:{labels,datasets:[
+  {label:'Revenue',data:MD.map(d=>d.rev),backgroundColor:'rgba(22,163,74,0.15)',borderColor:'#16a34a',borderWidth:1.5,borderRadius:4,order:3},
+  {label:'Expenses',data:MD.map(d=>d.exp),backgroundColor:'rgba(220,38,38,0.1)',borderColor:'#dc2626',borderWidth:1.5,borderRadius:4,order:3},
+  {label:'Prev Rev',data:PM.map(d=>d.rev),type:'line',borderColor:'rgba(22,163,74,0.35)',borderDash:[4,4],pointRadius:0,tension:.4,order:2},
+  {label:'Net Profit',data:MD.map(d=>d.net),type:'line',borderColor:'#2563eb',pointBackgroundColor:'#2563eb',tension:.4,pointRadius:3,borderWidth:2,order:1},
+]},options:{...TO_BASE,scales:{x:{ticks:{font:{size:10}}},y:{ticks:{callback:v=>'₨'+Math.round(v/1000)+'K',font:{size:10}}}}}});
+
+// 2. AR vs AP
+new Chart(document.getElementById('c-ar-ap'),{type:'line',data:{labels,datasets:[
+  {label:'AR',data:MD.map(d=>d.ar),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.08)',tension:.4,pointRadius:3,fill:true},
+  {label:'AP',data:MD.map(d=>d.ap),borderColor:'#d97706',backgroundColor:'rgba(217,119,6,0.08)',tension:.4,pointRadius:3,fill:true},
+]},options:{...TO_BASE,scales:{x:{ticks:{font:{size:10}}},y:{ticks:{callback:v=>'₨'+Math.round(v/1000)+'K',font:{size:10}}}}}});
+
+// 3. Expense Donut
+const expKeys=Object.keys(EXP_CAT), expVals=Object.values(EXP_CAT), expColors=expKeys.map(k=>CAT_COLORS[k]||'#ccc');
+const expTotal=expVals.reduce((a,b)=>a+b,0);
+document.getElementById('exp-legend').innerHTML=expKeys.map((k,i)=>`<span style="display:flex;align-items:center;gap:3px;font-size:10px;color:#555"><span style="width:8px;height:8px;border-radius:2px;background:${expColors[i]};flex-shrink:0;display:inline-block"></span>${k.slice(0,4)} ${expTotal?Math.round(expVals[i]/expTotal*100):'0'}%</span>`).join('');
+new Chart(document.getElementById('c-exp-donut'),{type:'doughnut',data:{labels:expKeys,datasets:[{data:expVals,backgroundColor:expColors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'58%'}});
+
+// 4. Revenue Donut
+const revKeys=Object.keys(REV_CAT), revVals=Object.values(REV_CAT), revColors=revKeys.map(k=>REV_COLORS[k]||'#ccc');
+const revTotal=revVals.reduce((a,b)=>a+b,0);
+document.getElementById('rev-legend').innerHTML=revKeys.map((k,i)=>`<span style="display:flex;align-items:center;gap:3px;font-size:10px;color:#555"><span style="width:8px;height:8px;border-radius:2px;background:${revColors[i]};flex-shrink:0;display:inline-block"></span>${k.slice(0,4)} ${revTotal?Math.round(revVals[i]/revTotal*100):'0'}%</span>`).join('');
+new Chart(document.getElementById('c-rev-donut'),{type:'doughnut',data:{labels:revKeys,datasets:[{data:revVals,backgroundColor:revColors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'58%'}});
+
+// 5. Margin trend
+const margins=MD.map(d=>d.rev>0?Math.round(d.net/d.rev*100):0);
+new Chart(document.getElementById('c-margin'),{type:'line',data:{labels,datasets:[{
+  data:margins,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.07)',tension:.4,pointRadius:3,fill:true,pointBackgroundColor:margins.map(v=>v>=0?'#16a34a':'#dc2626'),pointBorderColor:'#fff',pointBorderWidth:1
+}]},options:{...TO_BASE,plugins:{...TO_BASE.plugins,tooltip:{callbacks:{label:ctx=>ctx.raw+'%'}}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{callback:v=>v+'%',font:{size:10}}}}}});
+
+// 6. Top customers bar
+const maxCust = TOP_CUST.length ? Math.max(...TOP_CUST.map(c=>c.amount)) : 1;
+document.getElementById('top-cust-bars').innerHTML = TOP_CUST.map((c,i)=>{
+  const colors=['#2563eb','#16a34a','#d97706','#7c3aed','#db2777'];
+  const pct = Math.round(c.amount/maxCust*100);
+  return `<div style="margin-bottom:9px">
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:#333;font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span><span style="color:#555;font-family:DM Mono,monospace">₨${Math.round(c.amount/1000)}K</span></div>
+    <div style="height:6px;background:#f3f4f6;border-radius:3px"><div style="height:100%;width:${pct}%;background:${colors[i%5]};border-radius:3px;transition:width .5s"></div></div>
+  </div>`;
+}).join('') || '<p style="color:var(--muted);font-size:12px">No data</p>';
+
+// 7. Forecast
+const maxFC = FORECAST.length ? Math.max(...FORECAST.map(f=>f.rev)) : 1;
+document.getElementById('forecast-bars').innerHTML = FORECAST.map(f=>{
+  const revPct = Math.round(f.rev/maxFC*100);
+  const expPct = Math.round(f.exp/maxFC*100);
+  const net = f.rev - f.exp;
+  return `<div class="forecast-bar">
+    <div class="fc-label">${f.month}</div>
+    <div class="fc-bar-wrap">
+      <div class="fc-bar" style="width:${revPct}%;background:#16a34a;opacity:.8"></div>
+      <div class="fc-bar" style="width:${expPct}%;background:#dc2626;opacity:.7"></div>
+    </div>
+    <div class="fc-val" style="color:${net>=0?'#16a34a':'#dc2626'}">₨${Math.round(net/1000)}K</div>
+  </div>`;
+}).join('');
+
+// 8. Multi-year trend
+new Chart(document.getElementById('c-yearly'),{type:'bar',data:{
+  labels:YEARLY.map(y=>y.year),
+  datasets:[
+    {label:'Revenue',data:YEARLY.map(y=>y.rev),backgroundColor:'rgba(22,163,74,0.2)',borderColor:'#16a34a',borderWidth:1.5,borderRadius:4,order:2},
+    {label:'Expenses',data:YEARLY.map(y=>y.exp),backgroundColor:'rgba(220,38,38,0.15)',borderColor:'#dc2626',borderWidth:1.5,borderRadius:4,order:2},
+    {label:'Net Profit',data:YEARLY.map(y=>y.net),type:'line',borderColor:'#2563eb',pointBackgroundColor:'#2563eb',tension:.3,pointRadius:5,borderWidth:2.5,order:1},
+  ]
+},options:{...TO_BASE,scales:{x:{ticks:{font:{size:12}}},y:{ticks:{callback:v=>'₨'+Math.round(v/1000000)+'M',font:{size:10}}}}}});
+
+// 9. Transactions table
+const tbody=document.getElementById('txn-tbody');
+if(!TXNS.length){
+  tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:32px;color:#9ca3af">No transactions yet.</td></tr>';
+} else {
+  TXNS.slice(0,10).forEach(t=>{
+    const amt=t.amount, pos=amt>=0;
+    const amtStr=(pos?'+ ':'- ')+'PKR '+Math.abs(Math.round(amt)).toLocaleString();
+    const amtClr=pos?'#16a34a':'#dc2626';
+    const bc=t.status==='paid'?'badge-green':t.status==='overdue'?'badge-red':t.status==='pending'?'badge-amber':'badge-gray';
+    tbody.innerHTML+=`<tr>
+      <td style="color:#6b7280;font-size:12px">${t.date}</td>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.desc}</td>
+      <td><span class="badge badge-blue">${t.type}</span></td>
+      <td style="text-align:right;font-weight:600;color:${amtClr};font-family:'DM Mono',monospace;font-size:12px">${amtStr}</td>
+      <td><span class="badge ${bc}">${t.status}</span></td>
+    </tr>`;
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div style="max-width:560px">
+  <div class="page-header"><h1 style="font-size:20px;font-weight:600">Company settings</h1></div>
+  <div class="card">
+    <div class="card-title">Company profile</div>
+    <div class="card-sub">This info appears on your dashboard and reports</div>
+    <form method="POST">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Company name</label><input name="name" class="form-input" value="{{ company.name }}" required></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-input" value="{{ company.email }}"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input name="phone" class="form-input" value="{{ company.phone }}"></div>
+      <div class="form-group"><label class="form-label">Address</label><textarea name="address" class="form-input" rows="3">{{ company.address }}</textarea></div>
+      <div class="form-group"><label class="form-label">Currency</label>
+        <select name="currency" class="form-select">
+          <option value="PKR" {% if company.currency == 'PKR' %}selected{% endif %}>PKR — Pakistani Rupee</option>
+          <option value="USD" {% if company.currency == 'USD' %}selected{% endif %}>USD — US Dollar</option>
+          <option value="AED" {% if company.currency == 'AED' %}selected{% endif %}>AED — UAE Dirham</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Save settings →</button>
+    </form>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">Account info</div>
+    <div class="card-sub" style="margin-bottom:0">Logged in as <strong>{{ request.user.username }}</strong> · Member since {{ request.user.date_joined|date:"M Y" }}</div>
+  </div>
+</div>
+{% endblock %}

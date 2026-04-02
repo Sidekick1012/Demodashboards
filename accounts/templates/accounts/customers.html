@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 style="font-size:20px;font-weight:600">Customers</h1><p style="font-size:13px;color:var(--muted);margin-top:2px">Manage your client list</p></div>
+</div>
+<div class="grid-2" style="align-items:start">
+  <div class="card">
+    <div class="card-title">Add customer</div>
+    <div class="card-sub">New client entry</div>
+    <form method="POST">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Company / Name</label><input name="name" class="form-input" placeholder="Alpha Corp" required></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-input" placeholder="billing@alpha.com"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input name="phone" class="form-input" placeholder="0300-1234567"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Address</label><textarea name="address" class="form-input" rows="2" placeholder="Office address..."></textarea></div>
+      <button type="submit" class="btn btn-primary">Add customer →</button>
+    </form>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th style="text-align:right">Outstanding</th></tr></thead>
+        <tbody>
+        {% for c in customers %}
+        <tr>
+          <td style="font-weight:500">{{ c.name }}</td>
+          <td style="color:var(--muted);font-size:12px">{{ c.email|default:"—" }}</td>
+          <td style="color:var(--muted);font-size:12px">{{ c.phone|default:"—" }}</td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--amber)">PKR {{ c.total_outstanding|floatformat:0 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">No customers yet</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

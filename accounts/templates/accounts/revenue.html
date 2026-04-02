@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Revenue{% endblock %}
+{% block page_title %}Revenue{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 style="font-size:20px;font-weight:600">Revenue</h1><p style="font-size:13px;color:var(--muted);margin-top:2px">Track all income streams</p></div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <span class="filter-label">Filter:</span>
+  <select id="f-year" class="filter-select" onchange="applyFilters()">
+    <option value="">All Years</option>
+    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <select id="f-month" class="filter-select" onchange="applyFilters()">
+    <option value="">All Months</option>
+    {% for num,name in months %}<option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select>
+  <a href="{% url 'revenue' %}" class="filter-btn">Clear</a>
+</div>
+
+<div class="grid-2" style="align-items:start">
+  <div class="card">
+    <div class="card-title">Record revenue</div>
+    <div class="card-sub">Add a new income entry</div>
+    <form method="POST">{% csrf_token %}
+      <div class="form-group"><label class="form-label">Category</label>
+        <select name="category" class="form-select" required>
+          {% for val,label in categories %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><input name="description" class="form-input" placeholder="Product sales - Dec batch" required></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Amount (PKR)</label><input type="number" name="amount" class="form-input" placeholder="150000" step="0.01" required></div>
+        <div class="form-group"><label class="form-label">Date</label><input type="date" name="date" class="form-input" value="{{ today }}" required></div>
+      </div>
+      <button type="submit" class="btn btn-green">Record revenue →</button>
+    </form>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>
+        {% for r in revenues %}
+        <tr>
+          <td style="color:var(--muted);font-size:12px">{{ r.date }}</td>
+          <td><span class="badge badge-green">{{ r.get_category_display }}</span></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.description }}</td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green)">PKR {{ r.amount|floatformat:0 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">No revenue for selected filters</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
