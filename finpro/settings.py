@@ -9,12 +9,11 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='https://demodjangodashboards-production.up.railway.app'
-).split(',')
+CSRF_TRUSTED_ORIGINS = [
+    'https://web-production-19feb.up.railway.app',
+    'https://demodjangodashboards-production.up.railway.app',
+]
 
-# CSRF Extra Settings - YE NAI CHEEZ HAI
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
