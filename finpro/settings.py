@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 import dj_database_url
-from decouple import config
+from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -9,9 +9,12 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://web-production-19feb.up.railway.app',
-]
+# Auto-build CSRF origins from env var (set RAILWAY_PUBLIC_DOMAIN in Railway dashboard)
+_railway_url = config('RAILWAY_PUBLIC_DOMAIN', default='')
+CSRF_TRUSTED_ORIGINS = [f'https://{_railway_url}'] if _railway_url else []
+# Also support custom domain list from env
+_extra_origins = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
+CSRF_TRUSTED_ORIGINS += [o.strip() for o in _extra_origins if o.strip()]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -70,7 +73,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+# Only include static/ dir if it exists (avoids collectstatic crash)
+_static_dir = BASE_DIR / 'static'
+STATICFILES_DIRS = [_static_dir] if _static_dir.exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
